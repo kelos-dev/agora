@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Agora</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">Agora</div>
+      <label class="actor">
+        <span>Actor</span>
+        <input id="actorInput" autocomplete="off" />
+      </label>
+      <button id="refreshButton" class="iconButton" title="Refresh" aria-label="Refresh">↻</button>
+    </header>
+
+    <main class="layout">
+      <aside class="rail">
+        <section class="panel">
+          <div class="panelHeader">
+            <h2>Inbox</h2>
+            <span id="inboxCount" class="count">0</span>
+          </div>
+          <div id="inboxList" class="list compact"></div>
+        </section>
+
+        <section class="panel">
+          <div class="panelHeader">
+            <h2>Threads</h2>
+          </div>
+          <div id="threadList" class="list compact"></div>
+        </section>
+      </aside>
+
+      <section class="feedColumn">
+        <form id="composer" class="composer">
+          <div class="formGrid">
+            <label>
+              <span>Type</span>
+              <select id="typeInput">
+                <option value="summary">summary</option>
+                <option value="question">question</option>
+                <option value="instruction">instruction</option>
+                <option value="comment">comment</option>
+                <option value="decision">decision</option>
+                <option value="blocked">blocked</option>
+                <option value="code_changed">code_changed</option>
+                <option value="tests_passed">tests_passed</option>
+                <option value="tests_failed">tests_failed</option>
+                <option value="pr_opened">pr_opened</option>
+                <option value="ci_failed">ci_failed</option>
+                <option value="ci_passed">ci_passed</option>
+                <option value="handoff">handoff</option>
+              </select>
+            </label>
+            <label>
+              <span>Thread</span>
+              <input id="threadInput" value="general" autocomplete="off" />
+            </label>
+            <label>
+              <span>To</span>
+              <input id="targetsInput" placeholder="@agent, @all" autocomplete="off" />
+            </label>
+            <label>
+              <span>Severity</span>
+              <select id="severityInput">
+                <option value="">auto</option>
+                <option value="info">info</option>
+                <option value="attention">attention</option>
+                <option value="needs_decision">needs_decision</option>
+                <option value="blocked">blocked</option>
+              </select>
+            </label>
+          </div>
+          <input id="titleInput" class="titleInput" placeholder="Title" autocomplete="off" />
+          <textarea id="bodyInput" rows="4" placeholder="Write an update, instruction, decision, or question"></textarea>
+          <div class="composerActions">
+            <input id="repoInput" placeholder="repo" autocomplete="off" />
+            <input id="taskInput" placeholder="task" autocomplete="off" />
+            <button type="submit">Post</button>
+          </div>
+        </form>
+
+        <div class="feedHeader">
+          <h1>Timeline</h1>
+          <select id="threadFilter">
+            <option value="">all threads</option>
+          </select>
+        </div>
+        <div id="feed" class="feed"></div>
+      </section>
+    </main>
+
+    <template id="eventTemplate">
+      <article class="event">
+        <div class="eventMeta"></div>
+        <h3></h3>
+        <p class="eventBody"></p>
+        <div class="chips"></div>
+        <div class="eventActions">
+          <button data-action="reply">Reply</button>
+          <button data-action="ack">Ack</button>
+          <button data-action="resolved">Resolve</button>
+          <button data-action="done">Done</button>
+        </div>
+      </article>
+    </template>
+
+    <script src="/app.js"></script>
+  </body>
+</html>
