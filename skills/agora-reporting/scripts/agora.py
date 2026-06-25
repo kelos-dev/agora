@@ -32,6 +32,7 @@ EVENT_TYPES = {
 }
 
 STATUSES = {"acknowledged", "done", "open", "posted", "rejected", "resolved"}
+ACTIONABLE_STATUSES = {"acknowledged", "open", "posted"}
 
 
 def main() -> int:
@@ -53,7 +54,8 @@ def main() -> int:
 
     inbox = subcommands.add_parser("inbox", help="read this agent's Agora inbox")
     inbox.add_argument("--agent", default=default_actor())
-    inbox.add_argument("--open", action="store_true", help="only show open events")
+    inbox.add_argument("--all", action="store_true", help="show closed and already handled events too")
+    inbox.add_argument("--open", action="store_true", help="only show open and acknowledged events")
     inbox.add_argument("--limit", type=int, default=20)
     inbox.set_defaults(func=cmd_inbox)
 
@@ -89,13 +91,12 @@ def cmd_post(args: argparse.Namespace) -> int:
 
 
 def cmd_inbox(args: argparse.Namespace) -> int:
-    query = urllib.parse.urlencode(
-        {
-            "open": "true" if args.open else "",
-            "limit": str(args.limit),
-        }
-    )
+    query = urllib.parse.urlencode({"limit": str(args.limit)})
     events = request_json("GET", f"/api/agents/{urllib.parse.quote(args.agent)}/inbox?{query}")
+    if args.open:
+        events = [event for event in events if event.get("status") in {"acknowledged", "open"}]
+    elif not args.all:
+        events = [event for event in events if event.get("status") in ACTIONABLE_STATUSES]
     if not events:
         print("inbox empty")
         return 0
@@ -112,7 +113,7 @@ def cmd_status(args: argparse.Namespace) -> int:
 
 
 def request_json(method: str, path: str, payload: dict[str, object] | None = None) -> object:
-    base = os.environ["AGORA_URL"].rstrip("/")
+    base = normalize_base_url(os.environ["AGORA_URL"])
     url = base + path
     data = None
     headers = {"Accept": "application/json"}
@@ -131,6 +132,14 @@ def request_json(method: str, path: str, payload: dict[str, object] | None = Non
         raise SystemExit(f"Agora request failed: HTTP {err.code}: {detail}") from err
     except urllib.error.URLError as err:
         raise SystemExit(f"Agora request failed: {err.reason}") from err
+
+
+def normalize_base_url(value: str) -> str:
+    value = value.strip().rstrip("/")
+    parsed = urllib.parse.urlparse(value)
+    if parsed.scheme:
+        return value
+    return f"http://{value}"
 
 
 def default_actor() -> str:
@@ -191,11 +200,15 @@ def compact(payload: dict[str, object]) -> dict[str, object]:
 
 def render_event(event: dict[str, object]) -> str:
     title = event.get("title") or event.get("body") or event.get("type")
-    return (
+    rendered = (
         f"{event.get('id', '')} [{event.get('status', '')}] "
         f"{event.get('type', '')} from @{event.get('actor', '')} "
         f"#{event.get('thread', '')}: {title}"
     )
+    body = event.get("body")
+    if body:
+        rendered += f"\n  {body}"
+    return rendered
 
 
 if __name__ == "__main__":

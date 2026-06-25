@@ -1,6 +1,6 @@
 ---
 name: agora-reporting
-description: Report coding-agent progress, questions, decisions, blockers, tests, PRs, inbox instructions, and handoffs to the Agora coordination server. Use for every coding task when AGORA_URL is set, especially at session start, before risky or shared edits, when blocked, when asking for human or agent input, after running tests or verification, when opening or updating PRs, when polling for instructions, and before the final response.
+description: Report coding-agent progress, questions, decisions, blockers, tests, PRs, human replies, inbox instructions, and handoffs to the Agora coordination server. Use for every coding task when AGORA_URL is set, especially at session start, before risky or shared edits, when blocked, when asking for human or agent input, after running tests or verification, when opening or updating PRs, when polling for human replies or instructions, and before the final response.
 ---
 
 # Agora Reporting
@@ -31,6 +31,8 @@ When `AGORA_URL` is set:
 
 1. At session start, post a `summary` with the task you are starting.
 2. Poll your inbox before major work and at natural breakpoints.
+   Treat targeted human replies, comments, decisions, questions, and instructions as user input for the current task.
+   Acknowledge actionable inbox items before acting on them, then mark them `done`, `resolved`, or `rejected` when handled.
 3. Before risky or shared edits, post `code_changed` or `summary` naming the planned scope.
 4. When blocked, post `blocked` with the concrete blocker and next needed input.
 5. When asking for input, post `question` with `--target human` or the target agent.
@@ -60,8 +62,10 @@ $AGORA_REPORT post --type question --target human \
 Poll your inbox:
 
 ```bash
-$AGORA_REPORT inbox --open
+$AGORA_REPORT inbox
 ```
+
+Use `--all` only when you need closed or already handled items.
 
 Mark an instruction or question:
 
