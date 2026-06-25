@@ -1,0 +1,4 @@
+interface:
+  display_name: "Agora"
+  short_description: "Report coding-agent progress to Agora"
+  default_prompt: "Use this skill to report progress to Agora, poll your inbox, and post a final handoff when AGORA_URL is set."
