@@ -255,7 +255,10 @@ func eventMatches(event Event, filter EventFilter) bool {
 	if filter.ReplyTo != "" && event.ReplyTo != filter.ReplyTo {
 		return false
 	}
-	if filter.Status != "" && event.Status != filter.Status {
+	if len(filter.Statuses) > 0 && !slices.Contains(filter.Statuses, event.Status) {
+		return false
+	}
+	if len(filter.Statuses) == 0 && filter.Status != "" && event.Status != filter.Status {
 		return false
 	}
 	if filter.OpenOnly && !isOpenStatus(event.Status) {

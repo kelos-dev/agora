@@ -177,6 +177,7 @@ func (s *Server) authorized(r *http.Request) bool {
 func filterFromQuery(r *http.Request) agora.EventFilter {
 	query := r.URL.Query()
 	limit, _ := strconv.Atoi(query.Get("limit"))
+	statuses := statusFilters(query["status"])
 	return agora.EventFilter{
 		AfterID:  query.Get("after"),
 		Agent:    query.Get("agent"),
@@ -184,8 +185,24 @@ func filterFromQuery(r *http.Request) agora.EventFilter {
 		OpenOnly: parseBool(query.Get("open")),
 		ReplyTo:  query.Get("reply_to"),
 		Status:   query.Get("status"),
+		Statuses: statuses,
 		Thread:   query.Get("thread"),
 	}
+}
+
+func statusFilters(values []string) []string {
+	statuses := make([]string, 0, len(values))
+	seen := map[string]bool{}
+	for _, value := range values {
+		for _, status := range strings.Split(value, ",") {
+			status = strings.TrimSpace(status)
+			if status != "" && !seen[status] {
+				statuses = append(statuses, status)
+				seen[status] = true
+			}
+		}
+	}
+	return statuses
 }
 
 func parseBool(value string) bool {
