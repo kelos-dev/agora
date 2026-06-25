@@ -129,6 +129,7 @@ type EventFilter struct {
 	Agent    string
 	Limit    int
 	OpenOnly bool
+	ReplyTo  string
 	Status   string
 	Thread   string
 }

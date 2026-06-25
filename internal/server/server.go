@@ -182,6 +182,7 @@ func filterFromQuery(r *http.Request) agora.EventFilter {
 		Agent:    query.Get("agent"),
 		Limit:    limit,
 		OpenOnly: parseBool(query.Get("open")),
+		ReplyTo:  query.Get("reply_to"),
 		Status:   query.Get("status"),
 		Thread:   query.Get("thread"),
 	}
