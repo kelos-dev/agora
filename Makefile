@@ -1,7 +1,8 @@
 SHELL = /usr/bin/env bash -o pipefail
 .SHELLFLAGS = -ec
 
-BINARY ?= agora
+CLI_BINARY ?= agora
+SERVER_BINARY ?= agora-server
 BINDIR ?= bin
 REGISTRY ?= ghcr.io/kelos-dev
 IMAGE_NAME ?= agora
@@ -41,9 +42,17 @@ verify: ## Verify formatting, module metadata, tests, and vet checks.
 ##@ Build
 
 .PHONY: build
-build: ## Build the Agora binary.
+build: build-cli build-server ## Build the Agora CLI and server binaries.
+
+.PHONY: build-cli
+build-cli: ## Build the Agora CLI binary.
 	mkdir -p $(BINDIR)
-	CGO_ENABLED=0 go build -o $(BINDIR)/$(BINARY) ./cmd/agora
+	CGO_ENABLED=0 go build -o $(BINDIR)/$(CLI_BINARY) ./cmd/agora
+
+.PHONY: build-server
+build-server: ## Build the Agora server binary.
+	mkdir -p $(BINDIR)
+	CGO_ENABLED=0 go build -o $(BINDIR)/$(SERVER_BINARY) ./cmd/agora-server
 
 .PHONY: image
 image: ## Build the Agora server container image.
@@ -51,7 +60,7 @@ image: ## Build the Agora server container image.
 
 .PHONY: run
 run: ## Run the Agora server.
-	go run ./cmd/agora
+	go run ./cmd/agora-server
 
 .PHONY: clean
 clean: ## Clean build artifacts.

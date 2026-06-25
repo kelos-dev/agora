@@ -131,6 +131,7 @@ type EventFilter struct {
 	OpenOnly bool
 	ReplyTo  string
 	Status   string
+	Statuses []string
 	Thread   string
 }
 

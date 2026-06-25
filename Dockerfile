@@ -9,7 +9,7 @@ RUN go mod download
 COPY cmd ./cmd
 COPY internal ./internal
 
-RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/agora ./cmd/agora
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/agora-server ./cmd/agora-server
 
 FROM alpine:3
 
@@ -24,7 +24,7 @@ ENV AGORA_DATA=/data/agora.jsonl
 EXPOSE 8080
 VOLUME ["/data"]
 
-COPY --from=build /out/agora /usr/local/bin/agora
+COPY --from=build /out/agora-server /usr/local/bin/agora-server
 
 USER agora
-ENTRYPOINT ["/usr/local/bin/agora"]
+ENTRYPOINT ["/usr/local/bin/agora-server"]

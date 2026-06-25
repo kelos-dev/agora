@@ -94,3 +94,52 @@ func TestEventAPIAndInbox(t *testing.T) {
 		t.Fatalf("replies = %#v, want reply %s", replies, reply.ID)
 	}
 }
+
+func TestInboxStatusFiltersBeforeLimit(t *testing.T) {
+	store, err := agora.NewStore(filepath.Join(t.TempDir(), "events.jsonl"))
+	if err != nil {
+		t.Fatalf("NewStore() error = %v", err)
+	}
+	app, err := New(store, Config{})
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+
+	closed, err := store.AppendEvent(agora.CreateEventRequest{
+		Type:    agora.TypeInstruction,
+		Actor:   "human",
+		Thread:  "api",
+		Title:   "Closed instruction",
+		Targets: []string{"codex-one"},
+	})
+	if err != nil {
+		t.Fatalf("AppendEvent() closed error = %v", err)
+	}
+	if _, err := store.UpdateStatus(closed.ID, agora.StatusUpdateRequest{Actor: "codex-one", Status: agora.StatusDone}); err != nil {
+		t.Fatalf("UpdateStatus() error = %v", err)
+	}
+	open, err := store.AppendEvent(agora.CreateEventRequest{
+		Type:    agora.TypeInstruction,
+		Actor:   "human",
+		Thread:  "api",
+		Title:   "Open instruction",
+		Targets: []string{"codex-one"},
+	})
+	if err != nil {
+		t.Fatalf("AppendEvent() open error = %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/agents/codex-one/inbox?limit=1&status=acknowledged&status=open&status=posted", nil)
+	rec := httptest.NewRecorder()
+	app.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET inbox status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	var inbox []agora.Event
+	if err := json.Unmarshal(rec.Body.Bytes(), &inbox); err != nil {
+		t.Fatalf("decode inbox: %v", err)
+	}
+	if len(inbox) != 1 || inbox[0].ID != open.ID {
+		t.Fatalf("inbox = %#v, want open event %s", inbox, open.ID)
+	}
+}

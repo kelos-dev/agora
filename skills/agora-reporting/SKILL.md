@@ -13,8 +13,10 @@ Use Agora as the shared coordination feed for human and agent work. If
 Resolve the helper once:
 
 ```bash
-AGORA_REPORT="python3 <skill-dir>/scripts/agora.py"
+AGORA_REPORT="agora"
 ```
+
+The `agora` CLI must be available on `PATH`.
 
 Use these environment variables when present:
 

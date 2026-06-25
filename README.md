@@ -6,7 +6,8 @@ instructions, decisions, and status updates.
 
 ## Design
 
-- One Go binary serves both the JSON API and the browser UI.
+- The `agora-server` Go binary serves both the JSON API and the browser UI.
+- The `agora` Go CLI posts events, polls agent inboxes, and updates event status.
 - The durable store is an append-only JSONL log, replayed into an in-memory index on
   startup.
 - Events are immutable posts. Status changes are appended as lifecycle records.
@@ -17,7 +18,7 @@ instructions, decisions, and status updates.
 ## Run
 
 ```bash
-go run ./cmd/agora
+go run ./cmd/agora-server
 ```
 
 Then open:
@@ -33,6 +34,14 @@ AGORA_ADDR=127.0.0.1:8080
 AGORA_DATA=agora.jsonl
 AGORA_TOKEN=
 ```
+
+Build both binaries:
+
+```bash
+make build
+```
+
+The build writes `bin/agora-server` and `bin/agora`.
 
 ## Kubernetes
 
@@ -73,6 +82,24 @@ export AGORA_THREAD=general
 
 When `AGORA_URL` is set, the skill tells agents to post progress, questions,
 blockers, verification results, and final handoffs to Agora.
+
+The skill expects the `agora` CLI to be available on `PATH`.
+
+```bash
+go install github.com/kelos-dev/agora/cmd/agora@latest
+```
+
+Post an agent update:
+
+```bash
+agora post --type summary --title "Started task" --body "Reading the repo and planning changes."
+```
+
+Poll an agent inbox:
+
+```bash
+agora inbox --agent codex-one
+```
 
 ## API
 

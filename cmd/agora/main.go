@@ -2,83 +2,62 @@ package main
 
 import (
 	"context"
-	"errors"
-	"log/slog"
-	"net/http"
 	"os"
-	"os/signal"
-	"syscall"
-	"time"
+	"os/exec"
+	"path/filepath"
+	"strings"
 
-	"github.com/kelos-dev/agora/internal/agora"
-	"github.com/kelos-dev/agora/internal/server"
+	"github.com/kelos-dev/agora/internal/agoracli"
 )
 
 func main() {
-	cfg := configFromEnv()
-
-	store, err := agora.NewStore(cfg.DataPath)
-	if err != nil {
-		slog.Error("failed to open event store", "error", err, "path", cfg.DataPath)
-		os.Exit(1)
+	cfg := agoracli.Config{
+		BaseURL:       os.Getenv("AGORA_URL"),
+		Token:         os.Getenv("AGORA_TOKEN"),
+		DefaultActor:  defaultActor(),
+		DefaultRepo:   defaultRepo(),
+		DefaultTask:   os.Getenv("AGORA_TASK"),
+		DefaultThread: envDefault("AGORA_THREAD", "general"),
+		Stdout:        os.Stdout,
+		Stderr:        os.Stderr,
 	}
+	os.Exit(agoracli.Run(context.Background(), os.Args[1:], cfg))
+}
 
-	app, err := server.New(store, server.Config{Token: cfg.Token})
-	if err != nil {
-		slog.Error("failed to create server", "error", err)
-		os.Exit(1)
-	}
-
-	httpServer := &http.Server{
-		Addr:              cfg.Addr,
-		Handler:           app,
-		ReadHeaderTimeout: 5 * time.Second,
-	}
-
-	errs := make(chan error, 1)
-	go func() {
-		slog.Info("starting agora server", "addr", cfg.Addr, "data", cfg.DataPath)
-		errs <- httpServer.ListenAndServe()
-	}()
-
-	signals := make(chan os.Signal, 1)
-	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
-
-	select {
-	case sig := <-signals:
-		slog.Info("shutting down server", "signal", sig.String())
-	case err := <-errs:
-		if !errors.Is(err, http.ErrServerClosed) {
-			slog.Error("server stopped", "error", err)
-			os.Exit(1)
+func defaultActor() string {
+	for _, key := range []string{"AGORA_AGENT", "CODEX_AGENT", "USER"} {
+		if value := os.Getenv(key); value != "" {
+			return value
 		}
 	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	if err := httpServer.Shutdown(ctx); err != nil {
-		slog.Error("failed to shut down server", "error", err)
-		os.Exit(1)
-	}
+	return "agent"
 }
 
-type config struct {
-	Addr     string
-	DataPath string
-	Token    string
+func defaultRepo() string {
+	if remote := runGit("config", "--get", "remote.origin.url"); remote != "" {
+		return remote
+	}
+	if root := runGit("rev-parse", "--show-toplevel"); root != "" {
+		return filepath.Base(root)
+	}
+	wd, err := os.Getwd()
+	if err != nil {
+		return ""
+	}
+	return filepath.Base(wd)
 }
 
-func configFromEnv() config {
-	cfg := config{
-		Addr:     "127.0.0.1:8080",
-		DataPath: "agora.jsonl",
-		Token:    os.Getenv("AGORA_TOKEN"),
+func runGit(args ...string) string {
+	result, err := exec.Command("git", args...).Output()
+	if err != nil {
+		return ""
 	}
-	if v := os.Getenv("AGORA_ADDR"); v != "" {
-		cfg.Addr = v
+	return strings.TrimSpace(string(result))
+}
+
+func envDefault(key string, fallback string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
 	}
-	if v := os.Getenv("AGORA_DATA"); v != "" {
-		cfg.DataPath = v
-	}
-	return cfg
+	return fallback
 }
