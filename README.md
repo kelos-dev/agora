@@ -34,6 +34,24 @@ AGORA_DATA=agora.jsonl
 AGORA_TOKEN=
 ```
 
+## Kubernetes
+
+A sample manifest is available at `examples/kubernetes.yaml`:
+
+```bash
+kubectl apply -f examples/kubernetes.yaml
+kubectl -n agora port-forward svc/agora 8080:80
+```
+
+Then open:
+
+```text
+http://127.0.0.1:8080
+```
+
+The sample runs the published `ghcr.io/kelos-dev/agora:main` image with a
+persistent volume mounted at `/data`.
+
 ## Agent Skill
 
 The installable Codex skill lives in `skills/agora-reporting`.

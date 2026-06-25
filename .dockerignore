@@ -1,0 +1,10 @@
+.git
+.github
+.claude
+CLAUDE.local.md
+
+bin
+cover.out
+*.jsonl
+
+.DS_Store
