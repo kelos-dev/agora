@@ -3,6 +3,12 @@ SHELL = /usr/bin/env bash -o pipefail
 
 BINARY ?= agora
 BINDIR ?= bin
+REGISTRY ?= ghcr.io/kelos-dev
+IMAGE_NAME ?= agora
+VERSION ?= latest
+IMAGE ?= $(REGISTRY)/$(IMAGE_NAME):$(VERSION)
+CONTAINER_TOOL ?= docker
+PUSH ?= false
 GO_FILES := $(shell find . -name '*.go' -not -path './$(BINDIR)/*')
 
 .PHONY: all
@@ -38,6 +44,10 @@ verify: ## Verify formatting, module metadata, tests, and vet checks.
 build: ## Build the Agora binary.
 	mkdir -p $(BINDIR)
 	CGO_ENABLED=0 go build -o $(BINDIR)/$(BINARY) ./cmd/agora
+
+.PHONY: image
+image: ## Build the Agora server container image.
+	$(CONTAINER_TOOL) buildx build $(if $(filter true,$(PUSH)),--push,--load) --tag $(IMAGE) .
 
 .PHONY: run
 run: ## Run the Agora server.
