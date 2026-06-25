@@ -43,12 +43,13 @@ def main() -> int:
     post.add_argument("--type", required=True, choices=sorted(EVENT_TYPES))
     post.add_argument("--title", required=True)
     post.add_argument("--body", default="")
-    post.add_argument("--thread", default=os.environ.get("AGORA_THREAD", "general"))
+    post.add_argument("--thread")
     post.add_argument("--actor", default=default_actor())
     post.add_argument("--target", action="append", default=[])
     post.add_argument("--repo", default=default_repo())
     post.add_argument("--task", default=os.environ.get("AGORA_TASK", ""))
     post.add_argument("--severity", default="")
+    post.add_argument("--reply-to", default="")
     post.add_argument("--link", action="append", default=[], metavar="NAME=URL")
     post.set_defaults(func=cmd_post)
 
@@ -76,18 +77,27 @@ def cmd_post(args: argparse.Namespace) -> int:
     payload = {
         "type": args.type,
         "actor": args.actor,
-        "thread": args.thread,
+        "thread": post_thread(args),
         "title": args.title,
         "body": args.body,
         "targets": split_targets(args.target),
         "repo": args.repo,
         "task": args.task,
         "severity": args.severity,
+        "reply_to": args.reply_to,
         "links": parse_links(args.link),
     }
     event = request_json("POST", "/api/events", compact(payload))
     print(f"posted {event.get('id', '')} {event.get('type', '')} #{event.get('thread', '')}")
     return 0
+
+
+def post_thread(args: argparse.Namespace) -> str:
+    if args.thread is not None:
+        return args.thread
+    if args.reply_to:
+        return ""
+    return os.environ.get("AGORA_THREAD", "general")
 
 
 def cmd_inbox(args: argparse.Namespace) -> int:

@@ -1,6 +1,7 @@
 const state = {
   actor: localStorage.getItem("agora.actor") || "human",
   thread: "",
+  replyTo: "",
   events: [],
   threads: [],
   inbox: [],
@@ -15,6 +16,7 @@ const els = {
   inboxList: document.querySelector("#inboxList"),
   refresh: document.querySelector("#refreshButton"),
   repo: document.querySelector("#repoInput"),
+  replyContext: document.querySelector("#replyContext"),
   severity: document.querySelector("#severityInput"),
   targets: document.querySelector("#targetsInput"),
   task: document.querySelector("#taskInput"),
@@ -76,6 +78,7 @@ async function refresh() {
 }
 
 function render() {
+  renderReplyContext();
   renderThreads();
   renderInbox();
   renderFeed();
@@ -144,9 +147,70 @@ function renderFeed() {
     els.feed.innerHTML = `<div class="empty">No posts</div>`;
     return;
   }
-  for (const event of [...state.events].reverse()) {
-    els.feed.appendChild(renderEvent(event));
+  const { roots, childrenByParent } = buildEventTree(state.events);
+  const latestActivityByID = new Map();
+  const sortedRoots = [...roots].sort((a, b) => {
+    const activityDiff =
+      latestActivityTime(b, childrenByParent, latestActivityByID) -
+      latestActivityTime(a, childrenByParent, latestActivityByID);
+    if (activityDiff !== 0) return activityDiff;
+    return eventTimestamp(b) - eventTimestamp(a);
+  });
+  for (const event of sortedRoots) {
+    els.feed.appendChild(renderEventThread(event, childrenByParent));
   }
+}
+
+function eventTimestamp(event) {
+  const timestamp = Date.parse(event.created_at);
+  return Number.isNaN(timestamp) ? 0 : timestamp;
+}
+
+function latestActivityTime(event, childrenByParent, latestActivityByID) {
+  if (latestActivityByID.has(event.id)) {
+    return latestActivityByID.get(event.id);
+  }
+
+  let latest = eventTimestamp(event);
+  for (const reply of childrenByParent.get(event.id) || []) {
+    latest = Math.max(latest, latestActivityTime(reply, childrenByParent, latestActivityByID));
+  }
+  latestActivityByID.set(event.id, latest);
+  return latest;
+}
+
+function buildEventTree(events) {
+  const eventsByID = new Map(events.map((event) => [event.id, event]));
+  const childrenByParent = new Map();
+  const roots = [];
+  for (const event of events) {
+    if (event.reply_to && eventsByID.has(event.reply_to)) {
+      if (!childrenByParent.has(event.reply_to)) {
+        childrenByParent.set(event.reply_to, []);
+      }
+      childrenByParent.get(event.reply_to).push(event);
+      continue;
+    }
+    roots.push(event);
+  }
+  return { roots, childrenByParent };
+}
+
+function renderEventThread(event, childrenByParent) {
+  const group = document.createElement("div");
+  group.className = "eventThread";
+  group.appendChild(renderEvent(event));
+
+  const replies = childrenByParent.get(event.id) || [];
+  if (replies.length > 0) {
+    const replyList = document.createElement("div");
+    replyList.className = "eventReplies";
+    for (const reply of replies) {
+      replyList.appendChild(renderEventThread(reply, childrenByParent));
+    }
+    group.appendChild(replyList);
+  }
+  return group;
 }
 
 function renderEvent(event) {
@@ -195,11 +259,41 @@ function addChip(parent, text, kind = "") {
 }
 
 function replyTo(event) {
+  state.replyTo = event.id;
   els.type.value = "comment";
   els.thread.value = event.thread;
   els.targets.value = `@${event.actor}`;
   els.title.value = `Re: ${eventTitle(event)}`;
+  renderReplyContext();
   els.body.focus();
+}
+
+function renderReplyContext() {
+  els.replyContext.replaceChildren();
+  if (!state.replyTo) {
+    els.replyContext.hidden = true;
+    return;
+  }
+
+  const parent = state.events.find((event) => event.id === state.replyTo);
+  const label = document.createElement("span");
+  label.textContent = parent
+    ? `Replying to @${parent.actor}: ${eventTitle(parent)}`
+    : `Replying to ${state.replyTo}`;
+
+  const cancel = document.createElement("button");
+  cancel.type = "button";
+  cancel.className = "secondary";
+  cancel.textContent = "Cancel";
+  cancel.addEventListener("click", clearReply);
+
+  els.replyContext.hidden = false;
+  els.replyContext.append(label, cancel);
+}
+
+function clearReply() {
+  state.replyTo = "";
+  renderReplyContext();
 }
 
 async function setStatus(event, status) {
@@ -214,22 +308,25 @@ els.composer.addEventListener("submit", async (event) => {
   event.preventDefault();
   state.actor = els.actor.value.trim() || "human";
   localStorage.setItem("agora.actor", state.actor);
+  const replyParent = state.replyTo ? state.events.find((item) => item.id === state.replyTo) : null;
   await api("/api/events", {
     method: "POST",
     body: JSON.stringify({
       actor: state.actor,
       body: els.body.value,
       repo: els.repo.value,
+      reply_to: state.replyTo,
       severity: els.severity.value,
       targets: splitTargets(els.targets.value),
       task: els.task.value,
-      thread: els.thread.value,
+      thread: replyParent ? replyParent.thread : els.thread.value,
       title: els.title.value,
       type: els.type.value,
     }),
   });
   els.title.value = "";
   els.body.value = "";
+  state.replyTo = "";
   await refresh();
 });
 

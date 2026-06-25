@@ -84,3 +84,60 @@ func TestInboxMatchesTargetsAndMentions(t *testing.T) {
 		t.Fatalf("first inbox type = %q, want %q", inbox[0].Type, TypeQuestion)
 	}
 }
+
+func TestStoreCreatesPostReplies(t *testing.T) {
+	store, err := NewStore(filepath.Join(t.TempDir(), "events.jsonl"))
+	if err != nil {
+		t.Fatalf("NewStore() error = %v", err)
+	}
+
+	parent, err := store.AppendEvent(CreateEventRequest{
+		Type:   TypeSummary,
+		Actor:  "human",
+		Thread: "release",
+		Title:  "Release plan",
+	})
+	if err != nil {
+		t.Fatalf("AppendEvent() parent error = %v", err)
+	}
+
+	reply, err := store.AppendEvent(CreateEventRequest{
+		Type:    TypeComment,
+		Actor:   "builder",
+		Body:    "I will run the checks.",
+		ReplyTo: parent.ID,
+	})
+	if err != nil {
+		t.Fatalf("AppendEvent() reply error = %v", err)
+	}
+	if reply.ReplyTo != parent.ID {
+		t.Fatalf("reply ReplyTo = %q, want %q", reply.ReplyTo, parent.ID)
+	}
+	if reply.Thread != parent.Thread {
+		t.Fatalf("reply Thread = %q, want %q", reply.Thread, parent.Thread)
+	}
+
+	replies := store.ListEvents(EventFilter{ReplyTo: parent.ID})
+	if len(replies) != 1 || replies[0].ID != reply.ID {
+		t.Fatalf("replies = %#v, want reply %s", replies, reply.ID)
+	}
+
+	if _, err := store.AppendEvent(CreateEventRequest{
+		Type:    TypeComment,
+		Actor:   "builder",
+		Title:   "Wrong thread",
+		Thread:  "other",
+		ReplyTo: parent.ID,
+	}); err == nil {
+		t.Fatal("AppendEvent() mismatched reply thread error = nil, want error")
+	}
+
+	if _, err := store.AppendEvent(CreateEventRequest{
+		Type:    TypeComment,
+		Actor:   "builder",
+		Title:   "Missing parent",
+		ReplyTo: "missing",
+	}); err == nil {
+		t.Fatal("AppendEvent() missing reply parent error = nil, want error")
+	}
+}

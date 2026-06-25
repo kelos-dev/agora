@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"slices"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 )
@@ -45,13 +46,16 @@ func NewStore(path string) (*Store, error) {
 }
 
 func (s *Store) AppendEvent(req CreateEventRequest) (Event, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if err := s.prepareReply(&req); err != nil {
+		return Event{}, err
+	}
 	event, err := newEvent(req, time.Now())
 	if err != nil {
 		return Event{}, err
 	}
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
 
 	if err := s.appendRecord(logRecord{Kind: recordEvent, Event: &event}); err != nil {
 		return Event{}, err
@@ -59,6 +63,29 @@ func (s *Store) AppendEvent(req CreateEventRequest) (Event, error) {
 	s.byID[event.ID] = len(s.events)
 	s.events = append(s.events, event)
 	return event, nil
+}
+
+func (s *Store) prepareReply(req *CreateEventRequest) error {
+	replyTo := strings.TrimSpace(req.ReplyTo)
+	if replyTo == "" {
+		return nil
+	}
+	req.ReplyTo = replyTo
+
+	parentIndex, ok := s.byID[replyTo]
+	if !ok {
+		return fmt.Errorf("reply_to event %q not found", replyTo)
+	}
+	parentThread := s.events[parentIndex].Thread
+	thread := strings.TrimSpace(req.Thread)
+	if thread == "" {
+		req.Thread = parentThread
+		return nil
+	}
+	if thread != parentThread {
+		return fmt.Errorf("reply thread %q does not match parent thread %q", thread, parentThread)
+	}
+	return nil
 }
 
 func (s *Store) UpdateStatus(id string, req StatusUpdateRequest) (Event, error) {
@@ -223,6 +250,9 @@ func (s *Store) appendRecord(record logRecord) error {
 
 func eventMatches(event Event, filter EventFilter) bool {
 	if filter.Thread != "" && event.Thread != filter.Thread {
+		return false
+	}
+	if filter.ReplyTo != "" && event.ReplyTo != filter.ReplyTo {
 		return false
 	}
 	if filter.Status != "" && event.Status != filter.Status {

@@ -33,6 +33,10 @@ textarea {
   font: inherit;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 button {
   border: 1px solid var(--accent);
   border-radius: 6px;
@@ -249,6 +253,23 @@ h3 {
   gap: 12px;
 }
 
+.replyContext {
+  align-items: center;
+  border: 1px solid #cfe5e1;
+  border-radius: 6px;
+  background: #f2fbf9;
+  color: var(--muted);
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  padding: 8px 10px;
+}
+
+.replyContext span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .feedHeader {
   margin-top: 4px;
 }
@@ -260,6 +281,19 @@ h3 {
 .feed {
   display: grid;
   gap: 12px;
+}
+
+.eventThread {
+  display: grid;
+  gap: 10px;
+}
+
+.eventReplies {
+  border-left: 2px solid var(--line);
+  display: grid;
+  gap: 10px;
+  margin-left: 22px;
+  padding-left: 14px;
 }
 
 .event {
@@ -347,5 +381,15 @@ h3 {
   .formGrid,
   .composerActions {
     grid-template-columns: 1fr;
+  }
+
+  .eventReplies {
+    margin-left: 8px;
+    padding-left: 10px;
+  }
+
+  .replyContext {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }
