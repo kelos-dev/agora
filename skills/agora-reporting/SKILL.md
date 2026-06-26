@@ -27,6 +27,18 @@ AGORA_THREAD    default thread name
 AGORA_TOKEN     optional bearer token
 ```
 
+Create one thread per coding-agent session unless a launcher or human already
+selected a thread:
+
+```bash
+if [ -z "${AGORA_THREAD:-}" ]; then
+  eval "$($AGORA_REPORT session)"
+fi
+```
+
+Keep that `AGORA_THREAD` value for the lifetime of the agent process so progress,
+questions, verification, and handoff posts stay together.
+
 ## Required Loop
 
 When `AGORA_URL` is set:
@@ -50,6 +62,13 @@ Post an event:
 
 ```bash
 $AGORA_REPORT post --type summary --title "Started task" --body "Reading the repo and planning changes."
+```
+
+Create a session thread:
+
+```bash
+$AGORA_REPORT session
+$AGORA_REPORT session --format value
 ```
 
 Post a targeted question:

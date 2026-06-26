@@ -3,12 +3,15 @@ package agoracli
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 	"time"
 
@@ -66,6 +69,8 @@ var actionableStatusList = []string{
 	agora.StatusPosted,
 }
 
+var threadPartPattern = regexp.MustCompile(`[^a-z0-9._-]+`)
+
 func Run(ctx context.Context, args []string, cfg Config) int {
 	cfg = cfg.withDefaults()
 
@@ -84,6 +89,8 @@ func Run(ctx context.Context, args []string, cfg Config) int {
 		return runInbox(ctx, args[1:], cfg)
 	case "status":
 		return runStatus(ctx, args[1:], cfg)
+	case "session":
+		return runSession(args[1:], cfg)
 	default:
 		fmt.Fprintf(cfg.stderr(), "agora: unknown command %q\n\n", args[0])
 		printUsage(cfg.stderr())
@@ -151,6 +158,32 @@ func runPost(ctx context.Context, args []string, cfg Config) int {
 		return 1
 	}
 	fmt.Fprintf(cfg.stdout(), "posted %s %s #%s\n", event.ID, event.Type, event.Thread)
+	return 0
+}
+
+func runSession(args []string, cfg Config) int {
+	fs := newFlagSet("agora session", cfg)
+	actor := fs.String("actor", cfg.DefaultActor, "actor name")
+	repo := fs.String("repo", cfg.DefaultRepo, "repository name or URL")
+	task := fs.String("task", cfg.DefaultTask, "task identifier")
+	format := fs.String("format", "shell", "output format: shell or value")
+	fs.Usage = func() {
+		fmt.Fprintln(fs.Output(), "Usage: agora session [flags]")
+		fs.PrintDefaults()
+	}
+	if code := parseFlags(fs, args); code != -1 {
+		return code
+	}
+	if *format != "shell" && *format != "value" {
+		return usageError(fs, "unknown format %q", *format)
+	}
+
+	thread := sessionThread(*repo, *actor, *task, time.Now(), newSessionToken())
+	if *format == "value" {
+		fmt.Fprintln(cfg.stdout(), thread)
+		return 0
+	}
+	fmt.Fprintf(cfg.stdout(), "export AGORA_THREAD=%s\n", thread)
 	return 0
 }
 
@@ -268,7 +301,8 @@ func printUsage(w io.Writer) {
 	fmt.Fprintln(w, `Usage:
   agora post --type TYPE --title TITLE [flags]
   agora inbox [flags]
-  agora status [flags] EVENT_ID STATUS`)
+  agora status [flags] EVENT_ID STATUS
+  agora session [flags]`)
 }
 
 func requestJSON(ctx context.Context, cfg Config, method, apiPath string, payload any, out any) error {
@@ -372,6 +406,71 @@ func parseLinks(values []string) map[string]string {
 		}
 	}
 	return links
+}
+
+func sessionThread(repo string, actor string, task string, now time.Time, token string) string {
+	if now.IsZero() {
+		now = time.Now()
+	}
+	if token == "" {
+		token = newSessionToken()
+	}
+	parts := []string{
+		trimThreadPart(threadPart(repoName(repo)), 32),
+		trimThreadPart(threadPart(actor), 32),
+		trimThreadPart(threadPart(task), 40),
+		now.UTC().Format("20060102T150405Z"),
+		threadPart(token),
+	}
+
+	var kept []string
+	for _, part := range parts {
+		if part != "" {
+			kept = append(kept, part)
+		}
+	}
+	return strings.Join(kept, "-")
+}
+
+func newSessionToken() string {
+	var buf [3]byte
+	if _, err := rand.Read(buf[:]); err != nil {
+		return fmt.Sprintf("%06x", time.Now().UnixNano()&0xffffff)
+	}
+	return hex.EncodeToString(buf[:])
+}
+
+func repoName(value string) string {
+	value = strings.TrimSuffix(strings.TrimSpace(value), "/")
+	if value == "" {
+		return "repo"
+	}
+	value = strings.TrimSuffix(value, ".git")
+	if strings.Contains(value, "/") {
+		parts := strings.Split(value, "/")
+		value = parts[len(parts)-1]
+	}
+	if strings.Contains(value, ":") {
+		parts := strings.Split(value, ":")
+		value = parts[len(parts)-1]
+	}
+	if value == "" {
+		return "repo"
+	}
+	return value
+}
+
+func threadPart(value string) string {
+	value = strings.ToLower(strings.TrimSpace(value))
+	value = threadPartPattern.ReplaceAllString(value, "-")
+	return strings.Trim(value, "-._")
+}
+
+func trimThreadPart(value string, limit int) string {
+	if len(value) <= limit {
+		return value
+	}
+	return strings.Trim(value[:limit], "-._")
 }
 
 func compact(payload map[string]any) map[string]any {
