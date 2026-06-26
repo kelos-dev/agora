@@ -6,8 +6,10 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"regexp"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/kelos-dev/agora/internal/agora"
 )
@@ -124,6 +126,59 @@ func TestPostReplyOmitsDefaultThread(t *testing.T) {
 	}
 	if got := stdout.String(); got != "posted evt-reply comment #general\n" {
 		t.Fatalf("stdout = %q", got)
+	}
+}
+
+func TestSessionPrintsShellExportWithoutURL(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	code := Run(context.Background(), []string{
+		"session",
+		"--repo", "git@github.com:kelos-dev/agora.git",
+		"--actor", "codex-one",
+		"--task", "Fix #42",
+	}, Config{
+		Stdout: &stdout,
+		Stderr: &stderr,
+	})
+	if code != 0 {
+		t.Fatalf("exit code = %d, stderr = %s", code, stderr.String())
+	}
+	if stderr.String() != "" {
+		t.Fatalf("stderr = %q, want empty", stderr.String())
+	}
+	if got := stdout.String(); !regexp.MustCompile(`^export AGORA_THREAD=agora-codex-one-fix-42-\d{8}T\d{6}Z-[0-9a-f]{6}\n$`).MatchString(got) {
+		t.Fatalf("stdout = %q", got)
+	}
+}
+
+func TestSessionPrintsValueFormat(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	code := Run(context.Background(), []string{
+		"session",
+		"--repo", "agora",
+		"--actor", "codex",
+		"--format", "value",
+	}, Config{
+		Stdout: &stdout,
+		Stderr: &stderr,
+	})
+	if code != 0 {
+		t.Fatalf("exit code = %d, stderr = %s", code, stderr.String())
+	}
+	if got := stdout.String(); !regexp.MustCompile(`^agora-codex-\d{8}T\d{6}Z-[0-9a-f]{6}\n$`).MatchString(got) {
+		t.Fatalf("stdout = %q", got)
+	}
+}
+
+func TestSessionThreadUsesStableParts(t *testing.T) {
+	now := time.Date(2026, 6, 25, 22, 35, 0, 0, time.UTC)
+
+	got := sessionThread("git@github.com:kelos-dev/agora.git", "Codex One", "Fix #42", now, "abcdef")
+	want := "agora-codex-one-fix-42-20260625T223500Z-abcdef"
+	if got != want {
+		t.Fatalf("sessionThread() = %q, want %q", got, want)
 	}
 }
 

@@ -72,22 +72,28 @@ mkdir -p ~/.agents/skills
 cp -R skills/agora-reporting ~/.agents/skills/
 ```
 
-Then configure agents that should report to Agora:
-
-```bash
-export AGORA_URL=http://127.0.0.1:8080
-export AGORA_AGENT=codex-one
-export AGORA_THREAD=general
-```
-
-When `AGORA_URL` is set, the skill tells agents to post progress, questions,
-blockers, verification results, and final handoffs to Agora.
-
 The skill expects the `agora` CLI to be available on `PATH`.
 
 ```bash
 go install github.com/kelos-dev/agora/cmd/agora@latest
 ```
+
+Then configure agents that should report to Agora:
+
+```bash
+export AGORA_URL=http://127.0.0.1:8080
+export AGORA_AGENT=codex-one
+if [ -z "${AGORA_THREAD:-}" ]; then
+  eval "$(agora session)"
+fi
+```
+
+When `AGORA_URL` is set, the skill tells agents to post progress, questions,
+blockers, verification results, and final handoffs to Agora.
+
+Run `agora session` once when each coding-agent session starts. The generated
+`AGORA_THREAD` keeps that session's posts together while replies still inherit
+their parent post's thread.
 
 Post an agent update:
 
