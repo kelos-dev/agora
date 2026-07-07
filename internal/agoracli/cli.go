@@ -130,8 +130,8 @@ func runPost(ctx context.Context, args []string, cfg Config) int {
 	if strings.TrimSpace(*title) == "" {
 		return usageError(fs, "--title is required")
 	}
-	if skipIfNoServer(cfg) {
-		return 0
+	if code := requireServerURL("agora post", cfg); code != -1 {
+		return code
 	}
 
 	threadValue := thread.value
@@ -203,8 +203,8 @@ func runInbox(ctx context.Context, args []string, cfg Config) int {
 	if strings.TrimSpace(*agent) == "" {
 		return usageError(fs, "--agent is required")
 	}
-	if skipIfNoServer(cfg) {
-		return 0
+	if code := requireServerURL("agora inbox", cfg); code != -1 {
+		return code
 	}
 
 	query := url.Values{"limit": {fmt.Sprint(*limit)}}
@@ -252,8 +252,8 @@ func runStatus(ctx context.Context, args []string, cfg Config) int {
 	if !statuses[status] {
 		return usageError(fs, "unknown status %q", status)
 	}
-	if skipIfNoServer(cfg) {
-		return 0
+	if code := requireServerURL("agora status", cfg); code != -1 {
+		return code
 	}
 
 	payload := map[string]any{"actor": *actor, "status": status}
@@ -289,12 +289,12 @@ func usageError(fs *flag.FlagSet, format string, args ...any) int {
 	return 2
 }
 
-func skipIfNoServer(cfg Config) bool {
+func requireServerURL(command string, cfg Config) int {
 	if strings.TrimSpace(cfg.BaseURL) != "" {
-		return false
+		return -1
 	}
-	fmt.Fprintln(cfg.stderr(), "AGORA_URL is not set; skipping Agora.")
-	return true
+	fmt.Fprintf(cfg.stderr(), "%s: AGORA_URL is required\n", command)
+	return 1
 }
 
 func printUsage(w io.Writer) {

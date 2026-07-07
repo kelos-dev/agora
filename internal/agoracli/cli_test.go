@@ -302,21 +302,48 @@ func TestStatusUpdatesEvent(t *testing.T) {
 	}
 }
 
-func TestMissingURLSkipsRequest(t *testing.T) {
-	var stdout bytes.Buffer
-	var stderr bytes.Buffer
-	code := Run(context.Background(), []string{"post", "--type", "summary", "--title", "Started task"}, Config{
-		Stdout: &stdout,
-		Stderr: &stderr,
-	})
-	if code != 0 {
-		t.Fatalf("exit code = %d, stderr = %s", code, stderr.String())
+func TestMissingURLFailsForServerCommands(t *testing.T) {
+	tests := []struct {
+		name    string
+		args    []string
+		command string
+	}{
+		{
+			name:    "post",
+			args:    []string{"post", "--type", "summary", "--title", "Started task"},
+			command: "agora post",
+		},
+		{
+			name:    "inbox",
+			args:    []string{"inbox", "--agent", "codex"},
+			command: "agora inbox",
+		},
+		{
+			name:    "status",
+			args:    []string{"status", "evt-1", "acknowledged"},
+			command: "agora status",
+		},
 	}
-	if stdout.String() != "" {
-		t.Fatalf("stdout = %q, want empty", stdout.String())
-	}
-	if got := stderr.String(); got != "AGORA_URL is not set; skipping Agora.\n" {
-		t.Fatalf("stderr = %q", got)
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var stdout bytes.Buffer
+			var stderr bytes.Buffer
+			code := Run(context.Background(), tt.args, Config{
+				Stdout: &stdout,
+				Stderr: &stderr,
+			})
+			if code != 1 {
+				t.Fatalf("exit code = %d, stderr = %s", code, stderr.String())
+			}
+			if stdout.String() != "" {
+				t.Fatalf("stdout = %q, want empty", stdout.String())
+			}
+			want := tt.command + ": AGORA_URL is required\n"
+			if got := stderr.String(); got != want {
+				t.Fatalf("stderr = %q, want %q", got, want)
+			}
+		})
 	}
 }
 

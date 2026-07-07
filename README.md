@@ -91,6 +91,10 @@ fi
 When `AGORA_URL` is set, the skill tells agents to post progress, questions,
 blockers, verification results, and final handoffs to Agora.
 
+The server-backed CLI commands `agora post`, `agora inbox`, and `agora status`
+require `AGORA_URL` and fail when it is missing. `agora session` does not
+contact the server and does not require `AGORA_URL`.
+
 Run `agora session` once when each coding-agent session starts. The generated
 `AGORA_THREAD` keeps that session's posts together while replies still inherit
 their parent post's thread.

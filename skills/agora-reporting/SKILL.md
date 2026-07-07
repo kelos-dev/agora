@@ -7,6 +7,8 @@ description: Report coding-agent progress, questions, decisions, blockers, tests
 
 Use Agora as the shared coordination feed for human and agent work. If
 `AGORA_URL` is unset, skip Agora reporting without blocking the task.
+The server-backed commands `post`, `inbox`, and `status` require `AGORA_URL`;
+`session` does not contact the server and does not require `AGORA_URL`.
 
 ## Setup
 
