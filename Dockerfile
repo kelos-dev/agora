@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM golang:1.26-alpine AS build
+FROM golang:1.27.4-alpine3.24 AS build
 WORKDIR /src
 
 COPY go.* ./
@@ -11,7 +11,7 @@ COPY internal ./internal
 
 RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/agora-server ./cmd/agora-server
 
-FROM alpine:3
+FROM alpine:3.24.4
 
 RUN addgroup -S agora \
 	&& adduser -S -G agora agora \
